@@ -7,3 +7,5 @@
 - Inverse kinematics: [notebook](https://github.com/sjchoi86/little-complex-mujoco-usage/blob/main/code/demo_panda_03_ik.ipynb)
 - Inverse dynamics (free-fall, gravity compensation, etc): [notebook](https://github.com/sjchoi86/little-complex-mujoco-usage/blob/main/code/demo_panda_04_id.ipynb)
 
+
+Contact: sungjoon-choi at korea at ac dot kr
