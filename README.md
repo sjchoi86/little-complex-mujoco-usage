@@ -12,4 +12,7 @@ In this tutorial, we will be looking at slight complex usages of [MuJoCo](https:
 ### Legged robot (`Snapbot`)
 - WIP
 
+### Others
+- Gaussian random path: [notebook](https://github.com/sjchoi86/little-complex-mujoco-usage/blob/main/code/demo_unit_01_grp.ipynb)
+
 Contact: sungjoon-choi at korea at ac dot kr
