@@ -2,7 +2,7 @@ import os,time,cv2,glfw,mujoco_py
 import numpy as np
 import matplotlib.pyplot as plt
 from screeninfo import get_monitors # get monitor size
-
+from util import r2w,trim_scale
 
 # MuJoCo Parser class
 class MuJoCoParserClass(object):
@@ -102,12 +102,13 @@ class MuJoCoParserClass(object):
                    cam_distance  = None,
                    cam_elevation = None,
                    cam_lookat    = None,
-                   RETURN_IMG    = False):
+                   RETURN_IMG    = False,
+                   N_TRY         = 5
+                   ):
         """
             Plot scene
         """
         self.init_viewer()
-        N_TRY = 5
         for _ in range(N_TRY): # render multiple times to properly apply plot configurations
             for r_idx in range(len(self.sim.render_contexts)):
                 if cam_distance is not None:
@@ -221,24 +222,29 @@ class MuJoCoParserClass(object):
         # Forward dynamics
         self.sim.step()
 
-    def forward(self,q_pos=None,q_pos_idxs=None):
+    def forward(self,q_pos=None,q_pos_idxs=None,INCREASE_TICK=True):
         """
-            Forward kinematics
+            Forward kinemaatics
         """
         # Increase tick
-        self.tick = self.tick + 1
+        if INCREASE_TICK:
+            self.tick = self.tick + 1
+        # Forward kinematicaaqs
         if q_pos is not None:
             if q_pos_idxs is None:
                 self.sim.data.qpos[:] = q_pos
             else:
                 self.sim.data.qpos[q_pos_idxs] = q_pos
-        # Forward kinematics
         self.sim.forward()
         
-    def render(self):
+    def render(self,RENDER_ALWAYS=False):
         """
             Render simulation
         """
+        if RENDER_ALWAYS:
+            self.viewer._render_every_frame = True
+        else:
+            self.viewer._render_every_frame = False
         self.viewer.render()
         
     def get_sim_time(self):
@@ -303,3 +309,78 @@ class MuJoCoParserClass(object):
         self.sim_state = self.sim.get_state()
         R = np.array(self.sim.data.body_xmat[self.body_name2idx(body_name)].reshape([3, 3]))
         return R
+
+    def get_J_body(self,body_name):
+        """
+            Get body Jacobian
+        """
+        J_p    = np.array(self.sim.data.get_body_jacp(body_name).reshape((3, -1))[:,self.rev_qvel_idxs])
+        J_R    = np.array(self.sim.data.get_body_jacr(body_name).reshape((3, -1))[:,self.rev_qvel_idxs])
+        J_full = np.array(np.vstack([J_p,J_R]))
+        return J_p,J_R,J_full
+
+    def one_step_ik(self,body_name,p_trgt=None,R_trgt=None,stepsize=5.0*np.pi/180.0,eps=1e-6):
+        """
+            One-step inverse kinematics
+        """
+        J_p,J_R,J_full = self.get_J_body(body_name=body_name)
+        p_curr = self.get_p_body(body_name=body_name)
+        R_curr = self.get_R_body(body_name=body_name)
+        if (p_trgt is not None) and (R_trgt is not None): # both p and R targets are given
+            p_err = (p_trgt-p_curr)
+            R_err = np.linalg.solve(R_curr,R_trgt)
+            w_err = R_curr @ r2w(R_err)
+            J,err = J_full,np.concatenate((p_err,w_err))
+        elif (p_trgt is not None) and (R_trgt is None): # only p target is given
+            p_err = (p_trgt-p_curr)
+            J,err = J_p,p_err
+        elif (p_trgt is None) and (R_trgt is not None): # only R target is given
+            R_err = np.linalg.solve(R_curr,R_trgt)
+            w_err = R_curr @ r2w(R_err)
+            J,err = J_R,w_err
+        else:
+            raise Exception('At least one IK target is required!')
+        # Compute dq using least-square
+        dq = np.linalg.solve(a=(J.T@J)+eps*np.eye(J.shape[1]),b=J.T@err)
+        # Trim scale 
+        dq = trim_scale(x=dq,th=stepsize)
+        return dq,err
+
+    def backup_sim_data(self,joint_idxs=None):
+        """
+            Backup sim data (qpos, qvel, qacc)
+        """
+        if joint_idxs is None:
+            joint_idxs = self.rev_joint_idxs
+        self.qpos_bu = self.sim.data.qpos[joint_idxs]
+        self.qvel_bu = self.sim.data.qvel[joint_idxs]
+        self.qacc_bu = self.sim.data.qacc[joint_idxs]
+
+    def restore_sim_data(self,joint_idxs=None):
+        """
+            Restore sim data (qpos, qvel, qacc)
+        """
+        if joint_idxs is None:
+            joint_idxs = self.rev_joint_idxs
+        self.sim.data.qpos[joint_idxs] = self.qpos_bu
+        self.sim.data.qvel[joint_idxs] = self.qvel_bu
+        self.sim.data.qacc[joint_idxs] = self.qacc_bu
+
+    def solve_inverse_dynamics(self,qvel,qacc,joint_idxs=None):
+        """
+            Solve inverse dynamics to get torque from qvel and qacc
+        """
+        if joint_idxs is None:
+            joint_idxs = self.rev_joint_idxs
+        # Backup
+        self.backup_sim_data(joint_idxs=joint_idxs)
+        # Compute torque
+        self.sim.data.qpos[joint_idxs] = self.get_q_pos(q_pos_idxs=joint_idxs)
+        self.sim.data.qvel[joint_idxs] = qvel
+        self.sim.data.qacc[joint_idxs] = qacc
+        mujoco_py.functions.mj_inverse(self.sim.model,self.sim.data)
+        torque = self.sim.data.qfrc_inverse[joint_idxs].copy()
+        # Restore
+        self.restore_sim_data(joint_idxs=joint_idxs)
+        return torque
+
