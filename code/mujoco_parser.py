@@ -2,7 +2,7 @@ import os,time,cv2,glfw,mujoco_py
 import numpy as np
 import matplotlib.pyplot as plt
 from screeninfo import get_monitors # get monitor size
-from util import r2w,trim_scale
+from util import r2w,trim_scale,quat2r
 
 # MuJoCo Parser class
 class MuJoCoParserClass(object):
@@ -99,6 +99,7 @@ class MuJoCoParserClass(object):
                    render_h      = 800,
                    title_str     = None,
                    title_fs      = 10,
+                   cam_azimuth   = None,
                    cam_distance  = None,
                    cam_elevation = None,
                    cam_lookat    = None,
@@ -111,6 +112,8 @@ class MuJoCoParserClass(object):
         self.init_viewer()
         for _ in range(N_TRY): # render multiple times to properly apply plot configurations
             for r_idx in range(len(self.sim.render_contexts)):
+                if cam_azimuth is not None:
+                    self.sim.render_contexts[r_idx].cam.azimuth   = cam_azimuth
                 if cam_distance is not None:
                     self.sim.render_contexts[r_idx].cam.distance  = cam_distance
                 if cam_elevation is not None:
@@ -194,6 +197,20 @@ class MuJoCoParserClass(object):
         print ("azimuth:[%.2f] distance:[%.2f] elevation:[%.2f] lookat:[%.2f,%.2f,%.2f]"%(
             self.viewer.cam.azimuth,self.viewer.cam.distance,self.viewer.cam.elevation,
             self.viewer.cam.lookat[0],self.viewer.cam.lookat[1],self.viewer.cam.lookat[2]))
+
+    def get_viewer_info(self):
+        """
+            Get viewer information
+        """
+        cam_azimuth = self.viewer.cam.azimuth
+        cam_distance = self.viewer.cam.distance
+        cam_elevation = self.viewer.cam.elevation
+        cam_lookat = self.viewer.cam.lookat
+        viewer_info = {
+            'cam_azimuth':cam_azimuth,'cam_distance':cam_distance,
+            'cam_elevation':cam_elevation,'cam_lookat':cam_lookat
+        }
+        return viewer_info
             
     def terminate_viewer(self):
         """
@@ -282,7 +299,7 @@ class MuJoCoParserClass(object):
         """
         return self.sim.model.body_id2name(body_idx)
 
-    def add_marker(self,pos,type=2,radius=0.02,color=np.array([0.0,1.0,0.0,1.0]),label=''):
+    def add_marker(self,pos,type=2,radius=0.02,color=[0.0,1.0,0.0,1.0],label=''):
         """
             Add a maker to renderer
         """
@@ -384,3 +401,70 @@ class MuJoCoParserClass(object):
         self.restore_sim_data(joint_idxs=joint_idxs)
         return torque
 
+def get_env_obj_names(env,prefix='obj_'):
+    """
+        Accumulate object names by assuming that the prefix is 'obj_'
+    """
+    obj_names = [x for x in env.joint_names if x[:len(prefix)]==prefix]
+    return obj_names
+
+def set_env_obj(
+    env,
+    obj_name  = 'obj_box_01',
+    obj_pos   = [1.0,0.0,0.75],
+    obj_quat  = [0,0,0,1],
+    obj_color = None
+    ):
+    """
+        Set a single object in an environment
+    """
+    # Get address
+    qpos_addr = env.sim.model.get_joint_qpos_addr(obj_name)
+    # Set position
+    env.sim.data.qpos[qpos_addr[0]]   = obj_pos[0] # x
+    env.sim.data.qpos[qpos_addr[0]+1] = obj_pos[1] # y
+    env.sim.data.qpos[qpos_addr[0]+2] = obj_pos[2] # z
+    # Set rotation
+    env.sim.data.qpos[qpos_addr[0]+3:qpos_addr[1]] = obj_quat # quaternion
+    # Color
+    if obj_color is not None:
+        idx = env.sim.model.geom_name2id(obj_name)
+        env.sim.model.geom_rgba[idx,:] = obj_color
+
+def set_env_objs(
+    env,
+    obj_names,
+    obj_poses,
+    obj_colors=None):
+    """
+        Set multiple objects
+    """
+    for o_idx,obj_name in enumerate(obj_names):
+        obj_pos = obj_poses[o_idx,:]
+        if obj_colors is not None:
+            obj_color = obj_colors[o_idx,:]
+        else:
+            obj_color = None
+        set_env_obj(env,obj_name=obj_name,obj_pos=obj_pos,obj_color=obj_color)
+
+
+def get_env_obj_poses(env,obj_names):
+    """
+        Get object poses 
+    """
+    n_obj     = len(obj_names)
+    obj_ps = np.zeros(shape=(n_obj,3))
+    obj_Rs = np.zeros(shape=(n_obj,3,3))
+    for o_idx,obj_name in enumerate(obj_names):
+        qpos_addr = env.sim.model.get_joint_qpos_addr(obj_name)
+        # Get position
+        x = env.sim.data.qpos[qpos_addr[0]]
+        y = env.sim.data.qpos[qpos_addr[0]+1]
+        z = env.sim.data.qpos[qpos_addr[0]+2]
+        # Set rotation (upstraight)
+        quat = env.sim.data.qpos[qpos_addr[0]+3:qpos_addr[1]]
+        R = quat2r(quat)
+        # Append
+        obj_ps[o_idx,:] = np.array([x,y,z])
+        obj_Rs[o_idx,:,:] = R
+    return obj_ps,obj_Rs

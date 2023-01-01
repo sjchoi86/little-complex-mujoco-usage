@@ -19,6 +19,16 @@ def r2w(R):
         w = np.math.pi/2 * np.array([[R[0,0]+1], [R[1,1]+1], [R[2,2]+1]])
     return w.flatten()
 
+def quat2r(quat):
+    '''
+        Quaternion to rotation matrix
+    '''
+    import mujoco_py # <= this should be in here.. otherwise notebook stops working. why?
+    res = np.zeros(9)
+    mujoco_py.functions.mju_quat2Mat(res, quat)
+    R = res.reshape(3,3)
+    return R
+
 def trim_scale(x,th):
     """
         Trim scale
@@ -71,4 +81,4 @@ def kernel_levse(X1,X2,L1,L2,hyp={'g':1,'l':1}):
     """
     K = hyp['g']*np.exp(-cdist(X1,X2,'sqeuclidean')/(2*hyp['l']*hyp['l']))
     L = np.cos(np.pi/2.0*cdist(L1,L2,'cityblock'))
-    return np.multiply(K,L)        
+    return np.multiply(K,L)
