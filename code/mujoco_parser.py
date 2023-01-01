@@ -311,6 +311,25 @@ class MuJoCoParserClass(object):
             rgba  = color,
             label = label)
 
+    def add_arrow(self,pos,uv_arrow,r_stem=0.03,len_arrow=0.3,color=np.array([1,0,0,1]),label=''):
+        """
+            Add an arrow to renderer
+        """
+        p_a = np.copy(np.array([0,0,1]))
+        p_b = np.copy(uv_arrow)
+        p_a_norm = np.linalg.norm(p_a)
+        p_b_norm = np.linalg.norm(p_b)
+        if p_a_norm > 1e-9: p_a = p_a/p_a_norm
+        if p_b_norm > 1e-9: p_b = p_b/p_b_norm
+        v = np.cross(p_a,p_b)
+        S = np.array([[0,-v[2],v[1]],[v[2],0,-v[0]],[-v[1],v[0],0]])
+        if np.linalg.norm(v) == 0:
+            R = np.eye(3,3)
+        else:
+            R = np.eye(3,3) + S + S@S*(1-np.dot(p_a,p_b))/(np.linalg.norm(v)*np.linalg.norm(v))
+        self.viewer.add_marker(pos=pos,size=np.array([r_stem,r_stem,len_arrow]),
+                               mat=R,rgba=color,type=mujoco_py.generated.const.GEOM_ARROW,label=label)
+
     def get_p_body(self,body_name):
         """
             Get body position
@@ -400,6 +419,35 @@ class MuJoCoParserClass(object):
         # Restore
         self.restore_sim_data(joint_idxs=joint_idxs)
         return torque
+    
+    def get_contact_infos(self):
+        """
+            Get contact information
+        """
+        n_contact = self.sim.data.ncon
+        contact_infos = []
+        for c_idx in range(n_contact):
+            contact = self.sim.data.contact[c_idx]
+            # Compute contact point and force
+            p_contact = contact.pos
+            f_contact = np.zeros(6,dtype=np.float64) 
+            mujoco_py.functions.mj_contactForce(self.sim.model,self.sim.data,c_idx,f_contact)
+            # The contact force is in the contact frame
+            contact_frame = contact.frame
+            R_frame = contact_frame.reshape((3,3))
+            f_contact_global = R_frame @ f_contact[:3]
+            f_norm = np.linalg.norm(f_contact_global)
+            # Contacting bodies
+            bodyid1 = self.sim.model.geom_bodyid[contact.geom1]
+            bodyid2 = self.sim.model.geom_bodyid[contact.geom2]
+            bodyname1 = self.body_idx2name(bodyid1)
+            bodyname2 = self.body_idx2name(bodyid2)
+            # Append
+            contact_infos.append(
+                {'p':p_contact,'f':f_contact_global,'f_norm':f_norm,
+                 'bodyname1':bodyname1,'bodyname2':bodyname2}
+                )
+        return contact_infos
 
 def get_env_obj_names(env,prefix='obj_'):
     """
