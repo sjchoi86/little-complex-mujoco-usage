@@ -9,6 +9,7 @@
 - Inverse dynamics (free-fall, gravity compensation, etc): [notebook](https://github.com/sjchoi86/little-complex-mujoco-usage/blob/main/code/demo_panda_04_id.ipynb)
 - PID control: [notebook](https://github.com/sjchoi86/little-complex-mujoco-usage/blob/main/code/demo_panda_05_pid.ipynb)
 - Object spawning and tracking: [notebook](https://github.com/sjchoi86/little-complex-mujoco-usage/blob/main/code/demo_panda_06_objects.ipynb)
+- Contact information: [notebook](https://github.com/sjchoi86/little-complex-mujoco-usage/blob/main/code/demo_panda_07_contact.ipynb)
 
 ### Legged robot (`Snapbot`)
 - WIP
