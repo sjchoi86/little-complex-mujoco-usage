@@ -95,34 +95,21 @@ class MuJoCoParserClass(object):
             
     def plot_scene(self,
                    figsize       = (12,8),
-                   render_w      = 1200,
-                   render_h      = 800,
+                   render_w      = None,
+                   render_h      = None,
                    title_str     = None,
                    title_fs      = 10,
-                   cam_azimuth   = None,
-                   cam_distance  = None,
-                   cam_elevation = None,
-                   cam_lookat    = None,
-                   RETURN_IMG    = False,
-                   N_TRY         = 5
+                   RETURN_IMG    = False
                    ):
         """
             Plot scene
         """
-        self.init_viewer()
-        for _ in range(N_TRY): # render multiple times to properly apply plot configurations
-            for r_idx in range(len(self.sim.render_contexts)):
-                if cam_azimuth is not None:
-                    self.sim.render_contexts[r_idx].cam.azimuth   = cam_azimuth
-                if cam_distance is not None:
-                    self.sim.render_contexts[r_idx].cam.distance  = cam_distance
-                if cam_elevation is not None:
-                    self.sim.render_contexts[r_idx].cam.elevation = cam_elevation
-                if cam_lookat is not None:
-                    self.sim.render_contexts[r_idx].cam.lookat[0] = cam_lookat[0]
-                    self.sim.render_contexts[r_idx].cam.lookat[1] = cam_lookat[1]
-                    self.sim.render_contexts[r_idx].cam.lookat[2] = cam_lookat[2]
-            img = self.sim.render(width=render_w,height=render_h)
+        if (render_w is None) and (render_h is None):
+            # default render size matches with actual window
+            render_w = self.viwer_width*2
+            render_h = self.viwer_height*2
+        for _ in range(10):
+            img = self.viewer.read_pixels(width=render_w,height=render_h,depth=False)
         img = cv2.flip(cv2.rotate(img,cv2.ROTATE_180),1) # 0:up<->down, 1:left<->right
         if RETURN_IMG: # return RGB image
             return img
@@ -161,6 +148,9 @@ class MuJoCoParserClass(object):
                 window_width=window_width,window_height=window_height,
                 cam_azimuth=cam_azimuth,cam_distance=cam_distance,
                 cam_elevation=cam_elevation,cam_lookat=cam_lookat)
+        else:
+            self.viwer_width = 1000
+            self.viwer_height = 600
 
     def set_viewer(self,
                    window_width  = 0.5,
@@ -175,9 +165,9 @@ class MuJoCoParserClass(object):
         """
         if self.VIEWER_EXIST:
             self.window = self.viewer.window
-            width  = int(window_width*get_monitors()[0].width)
-            height = int(window_height*get_monitors()[0].height)
-            glfw.set_window_size(window=self.window,width=width,height=height)
+            self.viwer_width  = int(window_width*get_monitors()[0].width)
+            self.viwer_height = int(window_height*get_monitors()[0].height)
+            glfw.set_window_size(window=self.window,width=self.viwer_width,height=self.viwer_height)
             # Viewer setting
             if cam_azimuth is not None:
                 self.viewer.cam.azimuth = cam_azimuth
@@ -263,6 +253,16 @@ class MuJoCoParserClass(object):
         else:
             self.viewer._render_every_frame = False
         self.viewer.render()
+
+    def forward_renders(self,max_tick=100):
+        """
+            Loops of forward and render
+        """
+        tick = 0
+        while tick < max_tick:
+            tick = tick + 1
+            self.forward(INCREASE_TICK=False)
+            self.render()
         
     def get_sim_time(self):
         """
