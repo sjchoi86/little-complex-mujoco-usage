@@ -49,6 +49,9 @@ class MuJoCoParserClass(object):
         self.rev_joint_names = [self.joint_names[x] for x in self.rev_joint_idxs]
         self.n_rev_joint     = len(self.rev_joint_idxs)
         self.rev_qvel_idxs   = [self.sim.model.get_joint_qvel_addr(x) for x in self.rev_joint_names]
+        self.pri_joint_idxs  = np.where(self.joint_types==2)[0].astype(np.int32) # prismatic joint indices
+        self.pri_joint_names = [self.joint_names[x] for x in self.pri_joint_idxs]
+        self.n_pri_joint     = len(self.pri_joint_idxs)
         self.geom_names      = list(self.sim.model.geom_names)
         self.n_geom          = len(self.geom_names)
         
@@ -97,17 +100,18 @@ class MuJoCoParserClass(object):
                    figsize       = (12,8),
                    render_w      = None,
                    render_h      = None,
+                   render_expand = 1.0,
                    title_str     = None,
                    title_fs      = 10,
                    RETURN_IMG    = False
-                   ):
+                    ):
         """
             Plot scene
         """
         if (render_w is None) and (render_h is None):
             # default render size matches with actual window
-            render_w = self.viwer_width*2
-            render_h = self.viwer_height*2
+            render_w = self.viwer_width*render_expand
+            render_h = self.viwer_height*render_expand
         for _ in range(10):
             img = self.viewer.read_pixels(width=render_w,height=render_h,depth=False)
         img = cv2.flip(cv2.rotate(img,cv2.ROTATE_180),1) # 0:up<->down, 1:left<->right
@@ -192,10 +196,10 @@ class MuJoCoParserClass(object):
         """
             Get viewer information
         """
-        cam_azimuth = self.viewer.cam.azimuth
-        cam_distance = self.viewer.cam.distance
+        cam_azimuth   = self.viewer.cam.azimuth
+        cam_distance  = self.viewer.cam.distance
         cam_elevation = self.viewer.cam.elevation
-        cam_lookat = self.viewer.cam.lookat
+        cam_lookat    = self.viewer.cam.lookat
         viewer_info = {
             'cam_azimuth':cam_azimuth,'cam_distance':cam_distance,
             'cam_elevation':cam_elevation,'cam_lookat':cam_lookat
