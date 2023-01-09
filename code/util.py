@@ -1,6 +1,27 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 
+def rpy2r(rpy):
+    """
+        roll,pitch,yaw in radian to R
+    """
+    roll  = rpy[0]
+    pitch = rpy[1]
+    yaw   = rpy[2]
+    Cphi  = np.math.cos(roll)
+    Sphi  = np.math.sin(roll)
+    Cthe  = np.math.cos(pitch)
+    Sthe  = np.math.sin(pitch)
+    Cpsi  = np.math.cos(yaw)
+    Spsi  = np.math.sin(yaw)
+    R     = np.array([
+        [Cpsi * Cthe, -Spsi * Cphi + Cpsi * Sthe * Sphi, Spsi * Sphi + Cpsi * Sthe * Cphi],
+        [Spsi * Cthe, Cpsi * Cphi + Spsi * Sthe * Sphi, -Cpsi * Sphi + Spsi * Sthe * Cphi],
+        [-Sthe, Cthe * Sphi, Cthe * Cphi]
+    ])
+    assert R.shape == (3, 3)
+    return R
+
 def r2w(R):
     """
         R to \omega
