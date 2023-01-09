@@ -413,7 +413,7 @@ class MuJoCoParserClass(object):
             label = 'Arrow'
         )
 
-    def add_marker_coordinate(self,p=[0,0,0],R=np.eye(3),axis_len=0.5,rgba=None,label=''):
+    def add_marker_coordinate(self,p=[0,0,0],R=np.eye(3),axis_len=0.5,axis_width=0.01,rgba=None,label=''):
         """
             Plot coordinate
         """
@@ -425,30 +425,37 @@ class MuJoCoParserClass(object):
             rgba_x = rgba
             rgba_y = rgba
             rgba_z = rgba
+        R_x = R@rpy2r(np.deg2rad([0,0,90]))@rpy2r(np.pi/2*np.array([1,0,0]))
+        p_x = p + R_x[:,2]*axis_len/2
         self.viewer.add_marker(
-            pos   = p,
-            type  = mujoco_py.generated.const.GEOM_LINE,
-            size  = [0.0,0.0,axis_len],
-            mat   = R@rpy2r(np.deg2rad([0,0,90]))@rpy2r(np.pi/2*np.array([1,0,0])),
+            pos   = p_x,
+            type  = mujoco_py.generated.const.GEOM_CYLINDER,
+            size  = [axis_width,axis_width,axis_len/2],
+            mat   = R_x,
             rgba  = rgba_x,
-            label = 'Line'
+            label = ''
         )
+        R_y = R@rpy2r(np.deg2rad([0,0,90]))@rpy2r(np.pi/2*np.array([0,1,0]))
+        p_y = p + R_y[:,2]*axis_len/2
         self.viewer.add_marker(
-            pos   = p,
-            type  = mujoco_py.generated.const.GEOM_LINE,
-            size  = [0.0,0.0,axis_len],
-            mat   = R@rpy2r(np.deg2rad([0,0,90]))@rpy2r(np.pi/2*np.array([0,1,0])),
+            pos   = p_y,
+            type  = mujoco_py.generated.const.GEOM_CYLINDER,
+            size  = [axis_width,axis_width,axis_len/2],
+            mat   = R_y,
             rgba  = rgba_y,
             label = ''
         )
+        R_z = R@rpy2r(np.deg2rad([0,0,90]))@rpy2r(np.pi/2*np.array([0,0,1]))
+        p_z = p + R_z[:,2]*axis_len/2
         self.viewer.add_marker(
-            pos   = p,
-            type  = mujoco_py.generated.const.GEOM_LINE,
-            size  = [0.0,0.0,axis_len],
-            mat   = R@rpy2r(np.deg2rad([0,0,90]))@rpy2r(np.pi/2*np.array([0,0,1])),
+            pos   = p_z,
+            type  = mujoco_py.generated.const.GEOM_CYLINDER,
+            size  = [axis_width,axis_width,axis_len/2],
+            mat   = R_z,
             rgba  = rgba_z,
             label = ''
         )
+        self.add_marker_sphere(p=p,radius=0.001,rgba=[1.0,1.0,1.0,1.0],label=label)
 
     def get_p_body(self,body_name):
         """
