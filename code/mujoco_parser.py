@@ -2,7 +2,7 @@ import os,time,cv2,glfw,mujoco_py
 import numpy as np
 import matplotlib.pyplot as plt
 from screeninfo import get_monitors # get monitor size
-from util import r2w,trim_scale,quat2r
+from util import r2w,trim_scale,quat2r,rpy2r
 
 # MuJoCo Parser class
 class MuJoCoParserClass(object):
@@ -313,7 +313,8 @@ class MuJoCoParserClass(object):
             size  = radius*np.ones(3),
             mat   = np.eye(3).flatten(),
             rgba  = color,
-            label = label)
+            label = label
+        )
 
     def add_arrow(self,pos,uv_arrow,r_stem=0.03,len_arrow=0.3,color=np.array([1,0,0,1]),label=''):
         """
@@ -333,6 +334,121 @@ class MuJoCoParserClass(object):
             R = np.eye(3,3) + S + S@S*(1-np.dot(p_a,p_b))/(np.linalg.norm(v)*np.linalg.norm(v))
         self.viewer.add_marker(pos=pos,size=np.array([r_stem,r_stem,len_arrow]),
                                mat=R,rgba=color,type=mujoco_py.generated.const.GEOM_ARROW,label=label)
+
+    def add_marker_plane(self,p=[0,0,0],R=np.eye(3),xy_widths=[0.5,0.5],rgba=[1.0,0.0,0.0,1.0],label=''):
+        """
+            Plot plane
+        """
+        self.viewer.add_marker(
+            pos   = p,
+            type  = mujoco_py.generated.const.GEOM_PLANE,
+            size  = [xy_widths[0],xy_widths[1],0.0],
+            mat   = R,
+            rgba  = rgba,
+            label = label
+        )
+
+    def add_marker_sphere(self,p=[0,0,0],radius=0.05,rgba=[1.0,0.0,0.0,1.0],label=''):
+        """
+            Plot sphere
+        """
+        self.viewer.add_marker(
+            pos   = p,
+            type  = mujoco_py.generated.const.GEOM_SPHERE,
+            size  = [radius,radius,radius],
+            mat   = np.eye(3),
+            rgba  = rgba,
+            label = label
+        )
+
+    def add_marker_box(self,p=[0,0,0],R=np.eye(3),size=[0.1,0.1,0.1],rgba=[1.0,0.0,0.0,1.0],label=''):
+        """
+            Plot box
+        """
+        self.viewer.add_marker(
+            pos   = p,
+            type  = mujoco_py.generated.const.GEOM_BOX,
+            size  = size,
+            mat   = R,
+            rgba  = rgba,
+            label = label
+        )
+
+    def add_marker_capsule(self,p=[0,0,0],R=np.eye(3),size=[0.1,0.1,0.1],rgba=[1.0,0.0,0.0,1.0],label=''):
+        """
+            Plot capsule
+        """
+        self.viewer.add_marker(
+            pos   = p,
+            type  = mujoco_py.generated.const.GEOM_CAPSULE,
+            size  = size,
+            mat   = R,
+            rgba  = rgba,
+            label = 'Capsule'
+        )
+    
+    def add_marker_cylinder(self,p=[0,0,0],R=np.eye(3),size=[0.1,0.1,0.1],rgba=[1.0,0.0,0.0,1.0],label=''):
+        """
+            Plot cylinder
+        """
+        self.viewer.add_marker(
+            pos   = p,
+            type  = mujoco_py.generated.const.GEOM_CYLINDER,
+            size  = size,
+            mat   = R,
+            rgba  = rgba,
+            label = label
+        )
+
+    def add_marker_arrow(self,p=[0,0,0],R=np.eye(3),size=[0.1,0.1,0.1],rgba=[1.0,0.0,0.0,1.0],label=''):
+        """
+            Plot arrow
+        """
+        self.viewer.add_marker(
+            pos   = p,
+            type  = mujoco_py.generated.const.GEOM_ARROW,
+            size  = size,
+            mat   = R,
+            rgba  = rgba,
+            label = 'Arrow'
+        )
+
+    def add_marker_coordinate(self,p=[0,0,0],R=np.eye(3),axis_len=0.5,rgba=None,label=''):
+        """
+            Plot coordinate
+        """
+        if rgba is None:
+            rgba_x = [1.0,0.0,0.0,0.9]
+            rgba_y = [0.0,1.0,0.0,0.9]
+            rgba_z = [0.0,0.0,1.0,0.9]
+        else:
+            rgba_x = rgba
+            rgba_y = rgba
+            rgba_z = rgba
+        self.viewer.add_marker(
+            pos   = p,
+            type  = mujoco_py.generated.const.GEOM_LINE,
+            size  = [0.0,0.0,axis_len],
+            mat   = R@rpy2r(np.deg2rad([0,0,90]))@rpy2r(np.pi/2*np.array([1,0,0])),
+            rgba  = rgba_x,
+            label = 'Line'
+        )
+        self.viewer.add_marker(
+            pos   = p,
+            type  = mujoco_py.generated.const.GEOM_LINE,
+            size  = [0.0,0.0,axis_len],
+            mat   = R@rpy2r(np.deg2rad([0,0,90]))@rpy2r(np.pi/2*np.array([0,1,0])),
+            rgba  = rgba_y,
+            label = ''
+        )
+        self.viewer.add_marker(
+            pos   = p,
+            type  = mujoco_py.generated.const.GEOM_LINE,
+            size  = [0.0,0.0,axis_len],
+            mat   = R@rpy2r(np.deg2rad([0,0,90]))@rpy2r(np.pi/2*np.array([0,0,1])),
+            rgba  = rgba_z,
+            label = ''
+        )
 
     def get_p_body(self,body_name):
         """
