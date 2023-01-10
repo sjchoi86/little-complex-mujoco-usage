@@ -157,8 +157,8 @@ class MuJoCoParserClass(object):
             self.viwer_height = 600
 
     def set_viewer(self,
-                   window_width  = 0.5,
-                   window_height = 0.5,
+                   window_width  = None,
+                   window_height = None,
                    cam_azimuth   = None,
                    cam_distance  = None,
                    cam_elevation = None,
@@ -168,10 +168,11 @@ class MuJoCoParserClass(object):
             Set viewer
         """
         if self.VIEWER_EXIST:
-            self.window = self.viewer.window
-            self.viwer_width  = int(window_width*get_monitors()[0].width)
-            self.viwer_height = int(window_height*get_monitors()[0].height)
-            glfw.set_window_size(window=self.window,width=self.viwer_width,height=self.viwer_height)
+            if (window_width is not None) and (window_height is not None):
+                self.window = self.viewer.window
+                self.viwer_width  = int(window_width*get_monitors()[0].width)
+                self.viwer_height = int(window_height*get_monitors()[0].height)
+                glfw.set_window_size(window=self.window,width=self.viwer_width,height=self.viwer_height)
             # Viewer setting
             if cam_azimuth is not None:
                 self.viewer.cam.azimuth = cam_azimuth

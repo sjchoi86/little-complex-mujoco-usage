@@ -1,5 +1,26 @@
+import math
 import numpy as np
 from scipy.spatial.distance import cdist
+
+def pr2t(p,R):
+    """ 
+        Convert pose to transformation matrix 
+    """
+    p0 = p.ravel() # flatten
+    T = np.block([
+        [R, p0[:, np.newaxis]],
+        [np.zeros(3), 1]
+    ])
+    return T
+
+def t2pr(T):
+    """
+        T to p and R
+    """   
+    p = T[:3,3]
+    R = T[:3,:3]
+    return p,R
+
 
 def rpy2r(rpy):
     """
@@ -21,6 +42,22 @@ def rpy2r(rpy):
     ])
     assert R.shape == (3, 3)
     return R
+
+def r2rpy(R,unit='rad'):
+    """
+        Rotation matrix to roll,pitch,yaw in radian
+    """
+    roll  = math.atan2(R[2, 1], R[2, 2])
+    pitch = math.atan2(-R[2, 0], (math.sqrt(R[2, 1] ** 2 + R[2, 2] ** 2)))
+    yaw   = math.atan2(R[1, 0], R[0, 0])
+    if unit == 'rad':
+        out = np.array([roll, pitch, yaw])
+    elif unit == 'deg':
+        out = np.array([roll, pitch, yaw])*180/np.pi
+    else:
+        out = None
+        raise Exception("[r2rpy] Unknown unit:[%s]"%(unit))
+    return out    
 
 def r2w(R):
     """
