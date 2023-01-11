@@ -21,6 +21,19 @@ def t2pr(T):
     R = T[:3,:3]
     return p,R
 
+def t2p(T):
+    """
+        T to p 
+    """   
+    p = T[:3,3]
+    return p
+
+def t2r(T):
+    """
+        T to R
+    """   
+    R = T[:3,:3]
+    return R    
 
 def rpy2r(rpy):
     """

@@ -1,8 +1,9 @@
-import os,time,cv2,glfw,mujoco_py
+import os,time,cv2,glfw,mujoco_py,math
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.spatial.distance import cdist
 from screeninfo import get_monitors # get monitor size
-from util import r2w,trim_scale,quat2r,rpy2r
+from util import r2w,trim_scale,quat2r,rpy2r,pr2t
 
 # MuJoCo Parser class
 class MuJoCoParserClass(object):
@@ -644,3 +645,89 @@ def get_env_obj_poses(env,obj_names):
         obj_ps[o_idx,:] = np.array([x,y,z])
         obj_Rs[o_idx,:,:] = R
     return obj_ps,obj_Rs
+
+def random_spawn_objects(
+    env,
+    prefix     = 'obj_',
+    x_init     = -1.0,
+    n_place    = 5,
+    x_range    = [0.3,1.0],
+    y_range    = [-0.5,0.5],
+    z_range    = [1.01,1.01],
+    min_dist   = 0.15,
+    ):
+    """
+        Randomly spawn objects
+    """
+    # Reset
+    env.reset() 
+    # Place objects in a row on the ground
+    obj_names = get_env_obj_names(env,prefix=prefix) # available objects
+    colors = [plt.cm.gist_rainbow(x) for x in np.linspace(0,1,len(obj_names))]
+    for obj_idx,obj_name in enumerate(obj_names):
+        obj_pos   = [x_init,0.1*obj_idx,0.0]
+        obj_quat  = [0,0,0,1]
+        obj_color = colors[obj_idx]
+        set_env_obj(env=env,obj_name=obj_name,obj_pos=obj_pos,obj_quat=obj_quat,obj_color=obj_color)
+    env.forward(INCREASE_TICK=False) # update object locations
+
+    # Randomly place objects on the table
+    obj2place_idxs = np.random.permutation(len(obj_names))[:n_place].astype(int)
+    obj2place_names = [obj_names[o_idx] for o_idx in obj2place_idxs]
+    obj2place_poses = np.zeros((n_place,3))
+    for o_idx in range(n_place):
+        while True:
+            x = np.random.uniform(low=x_range[0],high=x_range[1])
+            y = np.random.uniform(low=y_range[0],high=y_range[1])
+            z = np.random.uniform(low=z_range[0],high=z_range[1])
+            xyz = np.array([x,y,z])
+            if o_idx >= 1:
+                devc = cdist(xyz.reshape((-1,3)),obj2place_poses[:o_idx,:].reshape((-1,3)),'euclidean')
+                if devc.min() > min_dist: break # minimum distance between objects
+            else:
+                break
+        obj2place_poses[o_idx,:] = xyz
+    set_env_objs(env,obj_names=obj2place_names,obj_poses=obj2place_poses,obj_colors=None)
+    env.forward()
+
+def get_viewer_coordinate(cam_lookat,cam_distance,cam_elevation,cam_azimuth):
+    """
+        Get viewer coordinate 
+    """
+    p_lookat = cam_lookat
+    R_lookat = rpy2r(np.deg2rad([0,-cam_elevation,cam_azimuth]))
+    T_lookat = pr2t(p_lookat,R_lookat)
+    T_viewer = T_lookat @ pr2t(np.array([-cam_distance,0,0]),np.eye(3)) # minus translate w.r.t. x
+    return T_viewer,T_lookat
+
+def depth2pcd(depth):
+    # depth = remap(depth, depth.min(), depth.max(), 0, 1)    # re mapping of depth
+    # print(depth)
+    scalingFactor = 1
+    fovy          = 45 # default value is 45.
+    aspect        = depth.shape[1] / depth.shape[0]
+    fovx          = 2 * math.atan(math.tan(fovy * 0.5 * math.pi / 360) * aspect)
+    width         = depth.shape[1]
+    height        = depth.shape[0]
+    fovx          = 2 * math.atan(width * 0.5 / (height * 0.5 / math.tan(fovy * math.pi / 360 / 2))) / math.pi * 360
+    fx            = width / 2 / (math.tan(fovx * math.pi / 360))
+    fy            = height / 2 / (math.tan(fovy * math.pi / 360))
+    points = []
+    for v in range(0, height, 10):
+        for u in range(0, width, 10):
+            Z = depth[v][u] / scalingFactor
+            if Z == 0:
+                continue
+            X = (u - width / 2) * Z / fx
+            Y = (v - height / 2) * Z / fy
+            points.append([X, Y, Z])
+    return np.array(points)
+
+
+
+
+
+
+
+
+
